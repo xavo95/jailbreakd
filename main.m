@@ -14,6 +14,8 @@
 #include "kern_utils.h"
 #include "kmem.h"
 #include "kernel_call.h"
+#include "kernel_memory.h"
+#include "kernel_slide.h"
 #include "offsets.h"
 
 #define PROC_PIDPATHINFO_MAXSIZE  (4*MAXPATHLEN)
@@ -72,7 +74,6 @@ struct __attribute__((__packed__)) JAILBREAKD_ENTITLE_PLATFORMIZE_PID {
 
 mach_port_t tfpzero;
 uint64_t kernel_base;
-uint64_t kernel_slide;
 struct offsets off;
 
 extern unsigned offsetof_ip_kobject;
@@ -98,6 +99,7 @@ int runserver(){
     kernel_slide = kernel_base - 0xFFFFFFF007004000;
     NSLog(@"[jailbreakd] slide: 0x%016llx", kernel_slide);
 
+    kernel_task_port = tfpzero;
     kernel_call_init();
 
     struct sockaddr_in serveraddr; /* server's addr */
