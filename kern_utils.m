@@ -4,7 +4,7 @@
 #import "kern_utils.h"
 #import "kmem.h"
 #import "patchfinder64.h"
-#import "kexecute.h"
+#import "kernel_call.h"
 #import "offsetof.h"
 #import "osobject.h"
 #import "sandbox.h"
@@ -99,7 +99,7 @@ int vnode_lookup(const char *path, int flags, uint64_t *vnode, uint64_t vfs_cont
     uint64_t ptr2 = kalloc(len);
     kwrite(ptr2, path, len);
     
-    if (kexecute(off.vnode_lookup + kernel_slide, ptr2, flags, ptr, vfs_context, 0, 0, 0)) {
+    if (kernel_call_7(off.vnode_lookup + kernel_slide, 4, ptr2, flags, ptr, vfs_context)) {
         return -1;
     }
     
@@ -111,7 +111,7 @@ int vnode_lookup(const char *path, int flags, uint64_t *vnode, uint64_t vfs_cont
 
 int vnode_put(uint64_t vnode) {
     //if (off.vnode_put) {
-        return kexecute(off.vnode_put + kernel_slide, vnode, 0, 0, 0, 0, 0, 0);
+        return kernel_call_7(off.vnode_put + kernel_slide, 1, vnode);
     //}
     
     /*//uint32_t usecount = rk32(vnode + 0x60);
@@ -128,7 +128,7 @@ int vnode_put(uint64_t vnode) {
 }
 
 uint64_t get_vfs_context() {
-    return zm_fix_addr(kexecute(off.vfs_context + kernel_slide, 1, 0, 0, 0, 0, 0, 0));
+    return zm_fix_addr(kernel_call_7(off.vfs_context + kernel_slide, 1, 1));
 }
 
 uint64_t getVnodeAtPath(const char *path) {
