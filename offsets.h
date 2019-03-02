@@ -12,6 +12,8 @@ struct offsets {
     uint64_t vfs_context;
     uint64_t vnode_put;
     uint64_t kernel_base;
+    uint64_t trustcache;
+    uint64_t f_load_trust_cache;
 };
 
 int getOffsetsFromFile(char *file, struct offsets *off);
