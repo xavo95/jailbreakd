@@ -13,6 +13,7 @@
 #include "patchfinder64.h"
 #include "kern_utils.h"
 #include "kmem.h"
+#include "parameters.h"
 #include "kernel_call.h"
 #include "kernel_memory.h"
 #include "kernel_slide.h"
@@ -100,6 +101,7 @@ int runserver(){
     NSLog(@"[jailbreakd] slide: 0x%016llx", kernel_slide);
 
     kernel_task_port = tfpzero;
+    parameters_init();
     kernel_call_init();
 
     struct sockaddr_in serveraddr; /* server's addr */
