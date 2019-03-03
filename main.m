@@ -15,8 +15,9 @@
 #include "kmem.h"
 #include "parameters.h"
 #include "kernel_call.h"
-#include "kernel_memory.h"
-#include "kernel_slide.h"
+#include "user_client.h"
+#include "kc_parameters.h"
+#include "offsetof.h"
 #include "offsets.h"
 
 #define PROC_PIDPATHINFO_MAXSIZE  (4*MAXPATHLEN)
@@ -101,8 +102,16 @@ int runserver(){
     NSLog(@"[jailbreakd] slide: 0x%016llx", kernel_slide);
 
     kernel_task_port = tfpzero;
+    uint64_t our_proc = proc_find(getpid(), 1);
+    current_task = rk64(our_proc + offsetof_task);
+
     parameters_init();
-    kernel_call_init();
+    bool ok = kernel_call_init();
+    if(!ok) {
+        NSLog(@"[jailbreakd] Failed to set kernel_call!");
+        exit(-1);
+    }
+    NSLog(@"[jailbreakd] Successfully set kernel_call!");
 
     struct sockaddr_in serveraddr; /* server's addr */
     struct sockaddr_in clientaddr; /* client addr */

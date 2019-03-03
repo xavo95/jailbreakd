@@ -69,6 +69,7 @@ kern_return_t mach_vm_write(vm_map_t target_task, mach_vm_address_t address, vm_
 kern_return_t mach_vm_allocate(vm_map_t target, mach_vm_address_t *address, mach_vm_size_t size, int flags);
 kern_return_t mach_vm_deallocate(vm_map_t target, mach_vm_address_t address, mach_vm_size_t size);
 
+uint64_t proc_find(int pd, int tries);
 uint64_t find_port(mach_port_name_t port);
 
 void fixupsetuid(int pid);

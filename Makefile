@@ -1,7 +1,7 @@
 TARGET  = jailbreakd
 OUTDIR ?= bin
 
-CC      = xcrun -sdk iphoneos cc -arch arm64e -Iinclude -Ivoucher_swap/headers -Ivoucher_swap/voucher_swap -Ivoucher_swap/voucher_swap/kernel_call
+CC      = xcrun -sdk iphoneos cc -arch arm64e -Iinclude
 LDID    = ldid2
 CFLAGS  = -Wall -Wno-unused-variable -Wno-unused-function
 
@@ -19,7 +19,7 @@ endif
 $(OUTDIR):
 	mkdir -p $(OUTDIR)
 
-$(OUTDIR)/$(TARGET): voucher_swap/voucher_swap/*.c voucher_swap/voucher_swap/kernel_call/*c *.c *.m | $(OUTDIR)
+$(OUTDIR)/$(TARGET): *.c *.m | $(OUTDIR)
 	$(CC) -o $@ $^ -framework Foundation -framework IOKit $(CFLAGS)
 
 	export LANG=C
