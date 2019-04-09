@@ -10,15 +10,16 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include "patchfinder64.h"
 #include "kern_utils.h"
 #include "kmem.h"
 #include "parameters.h"
 #include "kernel_call.h"
 #include "user_client.h"
 #include "kc_parameters.h"
-#include "offsetof.h"
 #include "offsets.h"
+#include "offsetof.h"
+#include "offsetcache.h"
+#include "log.h"
 
 #define PROC_PIDPATHINFO_MAXSIZE  (4*MAXPATHLEN)
 int proc_pidpath(pid_t pid, void *buffer, uint32_t buffersize);
@@ -76,12 +77,12 @@ struct __attribute__((__packed__)) JAILBREAKD_ENTITLE_PLATFORMIZE_PID {
 
 mach_port_t tfpzero;
 uint64_t kernel_base;
-struct offsets off;
 
-extern unsigned offsetof_ip_kobject;
+extern unsigned off_ip_kobject;
 
 int runserver(){
     NSLog(@"[jailbreakd] Process Start!");
+    _offsets_init();
 
     kern_return_t err = host_get_special_port(mach_host_self(), HOST_LOCAL_NODE, 4, &tfpzero);
     if (err != KERN_SUCCESS) {
@@ -89,21 +90,31 @@ int runserver(){
         return 5;
     }
 
-    bzero(&off, sizeof(struct offsets));
-    
-    if(getOffsetsFromFile("/var/containers/Bundle/tweaksupport/offsets.data", &off)) {
-        NSLog(@"[jailbreakd] Failed to get offsets!");
-        exit(-1);
+    if (!MACH_PORT_VALID(tfpzero)) {
+        NSLog(@"The received task for pid is invalid");
+        return 5;
     }
-    
+
+    struct task_dyld_info dyld_info = { 0 };
+    mach_msg_type_number_t count = TASK_DYLD_INFO_COUNT;
+    if(task_info(tfpzero, TASK_DYLD_INFO, (task_info_t)&dyld_info, &count) == KERN_SUCCESS) {
+        size_t blob_size = rk64(dyld_info.all_image_info_addr);
+        INFO("Restoring persisted offsets cache");
+        struct cache_blob *blob = create_cache_blob(blob_size);
+        if(kread(dyld_info.all_image_info_addr, blob, blob_size) != 0) {
+            import_cache_blob(blob);
+            free(blob);
+        }
+    }
+
     // Get the slide
-    kernel_base = off.kernel_base;
-    kernel_slide = kernel_base - 0xFFFFFFF007004000;
+    kernel_base = get_offset("kernel_load_base");
+    kernel_slide = get_offset("kernel_slide");
     NSLog(@"[jailbreakd] slide: 0x%016llx", kernel_slide);
 
     kernel_task_port = tfpzero;
     uint64_t our_proc = proc_find(getpid(), 1);
-    current_task = rk64(our_proc + offsetof_task);
+    current_task = rk64(our_proc + off_task);
 
     parameters_init();
     bool ok = kernel_call_init();

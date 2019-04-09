@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include "kernel_call.h"
 #include "kmem.h"
-#include "patchfinder64.h"
 #include "osobject.h"
+#include "offsetcache.h"
 
 // offsets in vtable:
 static uint32_t off_OSDictionary_SetObjectWithCharP = sizeof(void*) * 0x1F;
@@ -117,7 +117,7 @@ uint64_t _OSUnserializeXML(const char* buffer) {
 
 	uint64_t errorptr = 0;
 
-	uint64_t rv = kernel_call_7(find_osunserializexml(), 2, ks, errorptr);
+	uint64_t rv = kernel_call_7(get_offset("OSUnserializeXML"), 2, ks, errorptr);
 	kfree(ks, len);
 
 	return rv;

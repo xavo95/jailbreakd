@@ -1,7 +1,7 @@
 TARGET  = jailbreakd
 OUTDIR ?= bin
 
-CC      = xcrun -sdk iphoneos cc -arch arm64e -Iinclude
+CC      = xcrun -sdk iphoneos cc -arch arm64e -Iinclude -Ioffset-cache -Ikernel_call -I.
 LDID    = ldid2
 CFLAGS  = -Wall -Wno-unused-variable -Wno-unused-function
 
@@ -19,8 +19,8 @@ endif
 $(OUTDIR):
 	mkdir -p $(OUTDIR)
 
-$(OUTDIR)/$(TARGET): *.c *.m | $(OUTDIR)
-	$(CC) -o $@ $^ -framework Foundation -framework IOKit $(CFLAGS)
+$(OUTDIR)/$(TARGET): offset-cache/*.c kernel_call/*c *.c *.m | $(OUTDIR)
+	$(CC) -o $@ $^ -framework Foundation -framework IOKit -framework UIKit $(CFLAGS)
 
 	export LANG=C
 	export LC_CTYPE=C

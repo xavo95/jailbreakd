@@ -19,22 +19,6 @@
 mach_port_t kernel_task_port;
 
 /*
- * kernel_task
- *
- * Description:
- * 	The address of the kernel_task in kernel memory.
- */
-uint64_t kernel_task;
-
-/*
- * current_task
- *
- * Description:
- * 	The address of the current task in kernel memory.
- */
-uint64_t current_task;
-
-/*
  * kernel_ipc_port_lookup
  *
  * Description:

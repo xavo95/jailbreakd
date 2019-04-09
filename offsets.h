@@ -1,19 +1,67 @@
-#include <sys/types.h>
+//
+//  offsets.h
+//  sefebreak
+//
+//  Created by jakeajames.
+//
 
-struct offsets {
-    uint64_t allproc;
-    uint64_t OSBooleanTrue;
-    uint64_t OSBooleanFalse;
-    uint64_t gadget;
-    uint64_t zone_map_ref;
-    uint64_t OSUnserializeXML;
-    uint64_t smalloc;
-    uint64_t vnode_lookup;
-    uint64_t vfs_context;
-    uint64_t vnode_put;
-    uint64_t kernel_base;
-    uint64_t trustcache;
-    uint64_t f_load_trust_cache;
+#ifndef offsets_h
+#define offsets_h
+
+#include <stdio.h>
+
+enum _kstruct_offset {
+    /* struct task */
+    KSTRUCT_OFFSET_TASK_LCK_MTX_TYPE,
+    KSTRUCT_OFFSET_TASK_REF_COUNT,
+    KSTRUCT_OFFSET_TASK_ACTIVE,
+    KSTRUCT_OFFSET_TASK_VM_MAP,
+    KSTRUCT_OFFSET_TASK_NEXT,
+    KSTRUCT_OFFSET_TASK_PREV,
+    KSTRUCT_OFFSET_TASK_ITK_SPACE,
+    KSTRUCT_OFFSET_TASK_BSD_INFO,
+    KSTRUCT_OFFSET_TASK_ALL_IMAGE_INFO_ADDR,
+    KSTRUCT_OFFSET_TASK_ALL_IMAGE_INFO_SIZE,
+    
+    /* struct ipc_port */
+    KSTRUCT_OFFSET_IPC_PORT_IO_BITS,
+    KSTRUCT_OFFSET_IPC_PORT_IO_REFERENCES,
+    KSTRUCT_OFFSET_IPC_PORT_IKMQ_BASE,
+    KSTRUCT_OFFSET_IPC_PORT_MSG_COUNT,
+    KSTRUCT_OFFSET_IPC_PORT_IP_RECEIVER,
+    KSTRUCT_OFFSET_IPC_PORT_IP_KOBJECT,
+    KSTRUCT_OFFSET_IPC_PORT_IP_PREMSG,
+    KSTRUCT_OFFSET_IPC_PORT_IP_CONTEXT,
+    KSTRUCT_OFFSET_IPC_PORT_IP_SRIGHTS,
+    
+    /* struct proc */
+    KSTRUCT_OFFSET_PROC_PID,
+    KSTRUCT_OFFSET_PROC_P_FD,
+    KSTRUCT_OFFSET_PROC_P_LIST,
+    
+    /* struct filedesc */
+    KSTRUCT_OFFSET_FILEDESC_FD_OFILES,
+    
+    /* struct fileproc */
+    KSTRUCT_OFFSET_FILEPROC_F_FGLOB,
+    
+    /* struct fileglob */
+    KSTRUCT_OFFSET_FILEGLOB_FG_DATA,
+    
+    /* struct socket */
+    KSTRUCT_OFFSET_SOCKET_SO_PCB,
+    
+    /* struct pipe */
+    KSTRUCT_OFFSET_PIPE_BUFFER,
+    
+    /* struct ipc_space */
+    KSTRUCT_OFFSET_IPC_SPACE_IS_TABLE_SIZE,
+    KSTRUCT_OFFSET_IPC_SPACE_IS_TABLE,
+    
+    KFREE_ADDR_OFFSET,
 };
 
-int getOffsetsFromFile(char *file, struct offsets *off);
+int _koffset(enum _kstruct_offset offset);
+void _offsets_init(void);
+
+#endif /* offsets_h */

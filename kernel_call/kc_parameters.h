@@ -9,7 +9,27 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "parameters.h"
+// Generate the name for an offset.
+#define OFFSET(base_, object_)        _##base_##__##object_##__offset_
+
+// Generate the name for the size of an object.
+#define SIZE(object_)            _##object_##__size_
+
+// Generate the name for the size of a zalloc block of objects.
+#define BLOCK_SIZE(object_)        _##object_##__block_size_
+
+// Generate the name for the number of elements in a zalloc block.
+#define COUNT_PER_BLOCK(object_)    _##object_##__per_block_
+
+// Generate the name for the address of an object.
+#define ADDRESS(object_)        _##object_##__address_
+
+// Generate the name for the static (unslid) address of an object.
+#define STATIC_ADDRESS(object_)        _##object_##__static_address_
+
+// A convenience macro for accessing a field of a structure.
+#define FIELD(object_, struct_, field_, type_)    \
+( *(type_ *) ( ((uint8_t *) object_) + OFFSET(struct_, field_) ) )
 
 #ifdef KERNEL_CALL_PARAMETERS_EXTERN
 #define extern KERNEL_CALL_PARAMETERS_EXTERN
@@ -68,6 +88,7 @@ extern size_t OFFSET(kernel_forge_pacxa_gadget_buffer, pacia_result);
 extern size_t OFFSET(kernel_forge_pacxa_gadget_buffer, pacda_result);
 
 extern struct vtable_pac_codes VTABLE_PAC_CODES(IOAudio2DeviceUserClient);
+extern struct vtable_pac_codes VTABLE_PAC_CODES(IODTNVRAM);
 
 // Parameters for IOAudio2DeviceUserClient.
 extern size_t OFFSET(IOAudio2DeviceUserClient, traps);
@@ -90,7 +111,7 @@ extern uint32_t VTABLE_INDEX(IOUserClient, getTargetAndTrapForIndex);
  * kernel_call_parameters_init
  *
  * Description:
- * 	Initialize the addresses used in the kernel_call subsystem.
+ *     Initialize the addresses used in the kernel_call subsystem.
  */
 bool kernel_call_parameters_init(void);
 

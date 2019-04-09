@@ -1,5 +1,13 @@
 #include <mach/mach.h>
 
+/*
+ * current_task
+ *
+ * Description:
+ * 	The address of the current task in kernel memory.
+ */
+uint64_t current_task;
+
 uint64_t kalloc(vm_size_t size);
 void kfree(mach_vm_address_t address, vm_size_t size);
 

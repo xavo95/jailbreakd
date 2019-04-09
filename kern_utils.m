@@ -3,13 +3,13 @@
 #import <spawn.h>
 #import "kern_utils.h"
 #import "kmem.h"
-#import "patchfinder64.h"
 #import "kernel_call.h"
 #import "offsetof.h"
 #import "osobject.h"
 #import "sandbox.h"
 #import "offsets.h"
 #import "cs_blob.h"
+#include "offsetcache.h"
 
 #define PROC_PIDPATHINFO_MAXSIZE  (4*MAXPATHLEN)
 int proc_pidpath(pid_t pid, void *buffer, uint32_t buffersize);
@@ -17,9 +17,9 @@ int proc_pidpath(pid_t pid, void *buffer, uint32_t buffersize);
 uint64_t proc_find(int pd, int tries) {
     // TODO use kcall(proc_find) + ZM_FIX_ADDR
     while (tries-- > 0) {
-        uint64_t proc = rk64(find_allproc());
+        uint64_t proc = rk64(get_offset("allproc"));
         while (proc) {
-            uint32_t pid = rk32(proc + offsetof_p_pid);
+            uint32_t pid = rk32(proc + off_p_pid);
             if (pid == pd) {
                 return proc;
             }
@@ -29,25 +29,12 @@ uint64_t proc_find(int pd, int tries) {
     return 0;
 }
 
-CACHED_FIND(uint64_t, our_task_addr) {
-    uint64_t our_proc = proc_find(getpid(), 1);
-    
-    if (our_proc == 0) {
-        printf("failed to find our_task_addr!\n");
-        exit(EXIT_FAILURE);
-    }
-    
-    uint64_t addr = rk64(our_proc + offsetof_task);
-    printf("our_task_addr: 0x%llx\n", addr);
-    return addr;
-}
-
 uint64_t find_port(mach_port_name_t port){
-    uint64_t task_addr = our_task_addr();
+    uint64_t task_addr = current_task;
     
-    uint64_t itk_space = rk64(task_addr + offsetof_itk_space);
+    uint64_t itk_space = rk64(task_addr + off_itk_space);
     
-    uint64_t is_table = rk64(itk_space + offsetof_ipc_space_is_table);
+    uint64_t is_table = rk64(itk_space + off_ipc_space_is_table);
     
     uint32_t port_index = port >> 8;
     const int sizeof_ipc_entry_t = 0x18;
@@ -76,11 +63,11 @@ void fixupsetuid(int pid){
         
         uint64_t proc = proc_find(pid, 3);
         if (proc != 0) {
-            uint64_t ucred = rk64(proc + offsetof_p_ucred);
+            uint64_t ucred = rk64(proc + off_p_ucred);
             
-            uid_t cr_svuid = rk32(ucred + offsetof_ucred_cr_svuid);
+            uid_t cr_svuid = rk32(ucred + off_ucred_cr_svuid);
             NSLog(@"Original sv_uid: %u", cr_svuid);
-            wk32(ucred + offsetof_ucred_cr_svuid, fileUID);
+            wk32(ucred + off_ucred_cr_svuid, fileUID);
             NSLog(@"New sv_uid: %u", fileUID);
         }
     } else {
@@ -99,7 +86,7 @@ int vnode_lookup(const char *path, int flags, uint64_t *vnode, uint64_t vfs_cont
     uint64_t ptr2 = kalloc(len);
     kwrite(ptr2, path, len);
     
-    if (kernel_call_7(off.vnode_lookup + kernel_slide, 4, ptr2, flags, ptr, vfs_context)) {
+    if (kernel_call_7(get_offset("vnode_lookup"), 4, ptr2, flags, ptr, vfs_context)) {
         return -1;
     }
     
@@ -111,7 +98,7 @@ int vnode_lookup(const char *path, int flags, uint64_t *vnode, uint64_t vfs_cont
 
 int vnode_put(uint64_t vnode) {
     //if (off.vnode_put) {
-        return kernel_call_7(off.vnode_put + kernel_slide, 1, vnode);
+        return kernel_call_7(get_offset("vnode_put"), 1, vnode);
     //}
     
     /*//uint32_t usecount = rk32(vnode + 0x60);
@@ -128,7 +115,7 @@ int vnode_put(uint64_t vnode) {
 }
 
 uint64_t get_vfs_context() {
-    return zm_fix_addr(kernel_call_7(off.vfs_context + kernel_slide, 1, 1));
+    return zm_fix_addr(kernel_call_7(get_offset("vfs_context"), 1, 1));
 }
 
 uint64_t getVnodeAtPath(const char *path) {
@@ -171,7 +158,7 @@ int fixupdylib(char *dylib) {
     
     NSLog(@"vnode of %s: 0x%llx", dylib, vnode);
     
-    uint32_t v_flags = rk32(vnode + offsetof_v_flags);
+    uint32_t v_flags = rk32(vnode + off_v_flags);
     if (v_flags & VSHARED_DYLD) {
         vnode_put(vnode);
         return 0;
@@ -179,9 +166,9 @@ int fixupdylib(char *dylib) {
     
     NSLog(@"old v_flags: 0x%x", v_flags);
     
-    wk32(vnode + offsetof_v_flags, v_flags | VSHARED_DYLD);
+    wk32(vnode + off_v_flags, v_flags | VSHARED_DYLD);
     
-    v_flags = rk32(vnode + offsetof_v_flags);
+    v_flags = rk32(vnode + off_v_flags);
     NSLog(@"new v_flags: 0x%x", v_flags);
 
     vnode_put(vnode);
@@ -191,22 +178,22 @@ int fixupdylib(char *dylib) {
 
 
 void set_csflags(uint64_t proc) {
-    uint32_t csflags = rk32(proc + offsetof_p_csflags);
+    uint32_t csflags = rk32(proc + off_p_csflags);
     NSLog(@"Previous CSFlags: 0x%x", csflags);
     csflags = (csflags | CS_PLATFORM_BINARY | CS_INSTALLER | CS_GET_TASK_ALLOW | CS_DEBUGGED) & ~(CS_RESTRICT | CS_HARD | CS_KILL);
     NSLog(@"New CSFlags: 0x%x", csflags);
-    wk32(proc + offsetof_p_csflags, csflags);
+    wk32(proc + off_p_csflags, csflags);
 }
 
 void set_tfplatform(uint64_t proc) {
     // task.t_flags & TF_PLATFORM
-    uint64_t task = rk64(proc + offsetof_task);
-    uint32_t t_flags = rk32(task + offsetof_t_flags);
+    uint64_t task = rk64(proc + off_task);
+    uint32_t t_flags = rk32(task + off_t_flags);
     
     NSLog(@"Old t_flags: 0x%x", t_flags);
     
     t_flags |= TF_PLATFORM;
-    wk32(task+offsetof_t_flags, t_flags);
+    wk32(task+off_t_flags, t_flags);
     
     NSLog(@"New t_flags: 0x%x", t_flags);
     
@@ -214,14 +201,14 @@ void set_tfplatform(uint64_t proc) {
 
 
 void set_csblob(uint64_t proc) {
-    uint64_t textvp = rk64(proc + offsetof_p_textvp); //vnode of executable
-    off_t textoff = rk64(proc + offsetof_p_textoff);
+    uint64_t textvp = rk64(proc + off_p_textvp); //vnode of executable
+    off_t textoff = rk64(proc + off_p_textoff);
     
     
     NSLog(@"\t__TEXT at 0x%llx. Offset: 0x%llx", textvp, textoff);
     
     if (textvp != 0){
-        uint32_t vnode_type_tag = rk32(textvp + offsetof_v_type);
+        uint32_t vnode_type_tag = rk32(textvp + off_v_type);
         uint16_t vnode_type = vnode_type_tag & 0xffff;
         uint16_t vnode_tag = (vnode_type_tag >> 16);
         
@@ -229,32 +216,32 @@ void set_csblob(uint64_t proc) {
         
         
         if (vnode_type == 1){
-            uint64_t ubcinfo = rk64(textvp + offsetof_v_ubcinfo);
+            uint64_t ubcinfo = rk64(textvp + off_v_ubcinfo);
             
             NSLog(@"\t\tUBCInfo at 0x%llx.\n", ubcinfo);
             
             
-            uint64_t csblobs = rk64(ubcinfo + offsetof_ubcinfo_csblobs);
+            uint64_t csblobs = rk64(ubcinfo + off_ubcinfo_csblobs);
             while (csblobs != 0){
                 
                 NSLog(@"\t\t\tCSBlobs at 0x%llx.", csblobs);
                 
                 
-                cpu_type_t csblob_cputype = rk32(csblobs + offsetof_csb_cputype);
-                unsigned int csblob_flags = rk32(csblobs + offsetof_csb_flags);
-                off_t csb_base_offset = rk64(csblobs + offsetof_csb_base_offset);
-                uint64_t csb_entitlements = rk64(csblobs + offsetof_csb_entitlements_offset);
-                unsigned int csb_signer_type = rk32(csblobs + offsetof_csb_signer_type);
-                unsigned int csb_platform_binary = rk32(csblobs + offsetof_csb_platform_binary);
-                unsigned int csb_platform_path = rk32(csblobs + offsetof_csb_platform_path);
+                cpu_type_t csblob_cputype = rk32(csblobs + off_csb_cputype);
+                unsigned int csblob_flags = rk32(csblobs + off_csb_flags);
+                off_t csb_base_offset = rk64(csblobs + off_csb_base_offset);
+                uint64_t csb_entitlements = rk64(csblobs + off_csb_entitlements_offset);
+                unsigned int csb_signer_type = rk32(csblobs + off_csb_signer_type);
+                unsigned int csb_platform_binary = rk32(csblobs + off_csb_platform_binary);
+                unsigned int csb_platform_path = rk32(csblobs + off_csb_platform_path);
                 
                 
                 NSLog(@"\t\t\tCSBlob CPU Type: 0x%x. Flags: 0x%x. Offset: 0x%llx", csblob_cputype, csblob_flags, csb_base_offset);
                 NSLog(@"\t\t\tCSBlob Signer Type: 0x%x. Platform Binary: %d Path: %d", csb_signer_type, csb_platform_binary, csb_platform_path);
                 
-                wk32(csblobs + offsetof_csb_platform_binary, 1);
+                wk32(csblobs + off_csb_platform_binary, 1);
                 
-                csb_platform_binary = rk32(csblobs + offsetof_csb_platform_binary);
+                csb_platform_binary = rk32(csblobs + off_csb_platform_binary);
                 
                 NSLog(@"\t\t\tCSBlob Signer Type: 0x%x. Platform Binary: %d Path: %d", csb_signer_type, csb_platform_binary, csb_platform_path);
                 
@@ -305,8 +292,8 @@ void set_amfi_entitlements(uint64_t proc) {
     NSLog(@"%@",@"Setting Entitlements...");
     
     
-    OSDictionary_SetItem(amfi_entitlements, "get-task-allow", find_OSBoolean_True());
-    OSDictionary_SetItem(amfi_entitlements, "com.apple.private.skip-library-validation", find_OSBoolean_True());
+    OSDictionary_SetItem(amfi_entitlements, "get-task-allow", get_offset("OSBooleanTrue"));
+    OSDictionary_SetItem(amfi_entitlements, "com.apple.private.skip-library-validation", get_offset("OSBooleanTrue"));
     
     /*uint64_t present = OSDictionary_GetItem(amfi_entitlements, exc_key);
     
@@ -415,20 +402,20 @@ int fixupexec(char *file) {
     NSLog(@"[*] Found vnode: 0x%llx\n", vnode);
     
     uint16_t vtype;
-    kread(vnode + offsetof_v_type, &vtype, sizeof(uint16_t));
+    kread(vnode + off_v_type, &vtype, sizeof(uint16_t));
     if (vtype != 1) {
         NSLog(@"%s", "[-] Vnode does not have correct type\n");
         goto fail;
     }
     
-    uint64_t ubc_info = rk64(vnode + offsetof_v_ubcinfo);
+    uint64_t ubc_info = rk64(vnode + off_v_ubcinfo);
     if (!ubc_info) {
         NSLog(@"%s", "[-] No ubc_info?\n");
         goto fail;
     }
     NSLog(@"[*] ubc_info: 0x%llx\n", ubc_info);
     
-    uint64_t cs_blobs = rk64(ubc_info + offsetof_ubcinfo_csblobs);
+    uint64_t cs_blobs = rk64(ubc_info + off_ubcinfo_csblobs);
     if (!cs_blobs) {
         NSLog(@"%s", "[-] No cs_blobs?\n");
         goto fail;
@@ -475,9 +462,9 @@ int fixupexec(char *file) {
     else {
         NSLog(@"%s", "[*] Found some entitlements!");
         
-        if (!OSDictionary_GetItem(entitlements_blob, "platform-application")) OSDictionary_SetItem(entitlements_blob, "platform-application", find_OSBoolean_True());
-        if (!OSDictionary_GetItem(entitlements_blob, "com.apple.private.skip-library-validation")) OSDictionary_SetItem(entitlements_blob, "com.apple.private.skip-library-validation", find_OSBoolean_True());
-        if (!OSDictionary_GetItem(entitlements_blob, "get-task-allow")) OSDictionary_SetItem(entitlements_blob, "get-task-allow", find_OSBoolean_True());
+        if (!OSDictionary_GetItem(entitlements_blob, "platform-application")) OSDictionary_SetItem(entitlements_blob, "platform-application", get_offset("OSBooleanTrue"));
+        if (!OSDictionary_GetItem(entitlements_blob, "com.apple.private.skip-library-validation")) OSDictionary_SetItem(entitlements_blob, "com.apple.private.skip-library-validation", get_offset("OSBooleanTrue"));
+        if (!OSDictionary_GetItem(entitlements_blob, "get-task-allow")) OSDictionary_SetItem(entitlements_blob, "get-task-allow", get_offset("OSBooleanTrue"));
         
         uint64_t present = OSDictionary_GetItem(entitlements_blob, "com.apple.security.exception.files.absolute-path.read-only");
         
@@ -532,7 +519,7 @@ fail:;
 }
 
 void set_sandbox_extensions(uint64_t proc) {
-    uint64_t proc_ucred = rk64(proc + offsetof_p_ucred);
+    uint64_t proc_ucred = rk64(proc + off_p_ucred);
     uint64_t sandbox = rk64(rk64(proc_ucred + 0x78) + 0x10);
     
     char name[40] = {0};
@@ -585,7 +572,7 @@ int setcsflagsandplatformize(int pid){
 
 int unsandbox(int pid) {
     uint64_t proc = proc_find(pid, 3);
-    uint64_t proc_ucred = rk64(proc + offsetof_p_ucred);
+    uint64_t proc_ucred = rk64(proc + off_p_ucred);
     uint64_t sandbox = rk64(rk64(proc_ucred+0x78) + 8 + 8);
     if (sandbox == 0) {
         NSLog(@"Already unsandboxed");
