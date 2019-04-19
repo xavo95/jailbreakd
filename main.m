@@ -33,6 +33,7 @@ int proc_pidpath(pid_t pid, void *buffer, uint32_t buffersize);
 #define JAILBREAKD_COMMAND_UNSANDBOX 7
 #define JAILBREAKD_COMMAND_FIXUP_DYLIB 8
 #define JAILBREAKD_COMMAND_FIXUP_EXECUTABLE 9
+#define JAILBREAKD_COMMAMD_PREPARE_HSP4 10
 #define JAILBREAKD_COMMAND_EXIT 13
 
 struct __attribute__((__packed__)) JAILBREAKD_PACKET {
@@ -67,6 +68,13 @@ struct __attribute__((__packed__)) JAILBREAKD_FIXUP_DYLIB {
 struct __attribute__((__packed__)) JAILBREAKD_FIXUP_EXECUTABLE {
     uint8_t Command;
     char exec[1024];
+};
+
+struct __attribute__((__packed__)) JAILBREAKD_PREPARE_HSP4 {
+    uint8_t Command;
+    int32_t Pid;
+    int32_t Value;
+    char Entitlement[1024];
 };
 
 struct __attribute__((__packed__)) JAILBREAKD_ENTITLE_PLATFORMIZE_PID {
@@ -300,6 +308,18 @@ int runserver(){
             
             NSLog(@"Request to fixup executable: %s", execPacket->exec);
             fixupexec(execPacket->exec);
+        }
+
+        else if (command == JAILBREAKD_COMMAMD_PREPARE_HSP4) {
+            if (size < sizeof(struct  JAILBREAKD_PREPARE_HSP4)){
+                NSLog(@"Error: ENTITLE packet is too small");
+                continue;
+            }
+            struct JAILBREAKD_PREPARE_HSP4 *execPacket = (struct JAILBREAKD_PREPARE_HSP4 *)buf;
+            
+            NSLog(@"Request to prepare executable with: %s", execPacket->Entitlement);
+
+            set_amfi_specific_entitlements(execPacket->Pid, execPacket->Entitlement, execPacket->Value);
         }
         
         else if (command == JAILBREAKD_COMMAND_EXIT){

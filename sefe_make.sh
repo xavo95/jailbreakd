@@ -1,4 +1,4 @@
 #!/usr/bin/env sh
 
 make
-cp -vr bin/* ../sefebreak/sefebreak/tars/
+cp -vr bin/* ../../jailbreak-resources/tars/

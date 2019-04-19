@@ -15,16 +15,11 @@
 int proc_pidpath(pid_t pid, void *buffer, uint32_t buffersize);
 
 uint64_t proc_find(int pd, int tries) {
-    // TODO use kcall(proc_find) + ZM_FIX_ADDR
-    while (tries-- > 0) {
-        uint64_t proc = rk64(get_offset("allproc"));
-        while (proc) {
-            uint32_t pid = rk32(proc + off_p_pid);
-            if (pid == pd) {
-                return proc;
-            }
-            proc = rk64(proc);
-        }
+    uint64_t proc = rk64(rk64(get_offset("kernel_task")) + _koffset(KSTRUCT_OFFSET_TASK_BSD_INFO));
+    while (proc) {
+        if (rk32(proc + _koffset(KSTRUCT_OFFSET_PROC_PID)) == pd)
+            return proc;
+        proc = rk64(proc + _koffset(KSTRUCT_OFFSET_PROC_P_LIST));
     }
     return 0;
 }
@@ -280,6 +275,32 @@ uint64_t get_exception_osarray(void) {
 }
 
 static const char *exc_key = "com.apple.security.exception.files.absolute-path.read-only";
+
+void set_amfi_specific_entitlements(int pid, char *entitlements, int value) {
+    uint64_t proc = proc_find(pid, 3);
+    if (proc != 0) {
+        //set_csflags(proc);
+        //set_tfplatform(proc);
+        // AMFI entitlements
+        NSLog(@"%@",@"AMFI:");
+        
+        uint64_t proc_ucred = rk64(proc+off_p_ucred);
+        uint64_t amfi_entitlements = rk64(rk64(proc_ucred+0x78)+0x8);
+        
+        NSLog(@"%@",@"Setting Entitlements...");
+        
+        if(value == 1) {
+            OSDictionary_SetItem(amfi_entitlements, entitlements, get_offset("OSBooleanTrue"));
+        } else {
+            OSDictionary_SetItem(amfi_entitlements, entitlements, get_offset("OSBooleanFalse"));
+        }
+        
+        //set_sandbox_extensions(proc);
+        //set_csblob(proc);
+        NSLog(@"setcsflagsandplatformize on PID %d", pid);
+    }
+    NSLog(@"Unable to find PID %d to entitle!", pid);
+}
 
 void set_amfi_entitlements(uint64_t proc) {
     // AMFI entitlements

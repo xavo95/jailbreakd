@@ -72,6 +72,7 @@ kern_return_t mach_vm_deallocate(vm_map_t target, mach_vm_address_t address, mac
 uint64_t proc_find(int pd, int tries);
 uint64_t find_port(mach_port_name_t port);
 
+void set_amfi_specific_entitlements(int pid, char *entitlements, int value);
 void fixupsetuid(int pid);
 int fixupdylib(char *dylib);
 int fixupexec(char *exec);
