@@ -72,12 +72,16 @@ kern_return_t mach_vm_deallocate(vm_map_t target, mach_vm_address_t address, mac
 uint64_t proc_find(int pd, int tries);
 uint64_t find_port(mach_port_name_t port);
 
-void set_amfi_specific_entitlements(int pid, char *entitlements, int value);
+void set_sandbox_extensions(uint64_t proc);
+void set_amfi_specific_entitlements(int pid, char *entitlements);
 void fixupsetuid(int pid);
 int fixupdylib(char *dylib);
 int fixupexec(char *exec);
 int setcsflagsandplatformize(int pd);
 int unsandbox(int pd);
+int unsandbox_proc(uint64_t proc);
+int rootify(int pid);
+int rootify_proc(uint64_t proc);
 
 extern mach_port_t tfpzero;
 extern uint64_t kernel_base;

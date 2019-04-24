@@ -10,6 +10,7 @@
 #import "offsets.h"
 #import "cs_blob.h"
 #include "offsetcache.h"
+#include "entitle.h"
 
 #define PROC_PIDPATHINFO_MAXSIZE  (4*MAXPATHLEN)
 int proc_pidpath(pid_t pid, void *buffer, uint32_t buffersize);
@@ -194,6 +195,23 @@ void set_tfplatform(uint64_t proc) {
     
 }
 
+// void set_csblob(uint64_t proc) {
+//     uint64_t textvp = rk64(proc + offsetof_p_textvp); // vnode of executable
+//     if (textvp == 0) return;
+    
+//     uint16_t vnode_type = rk16(textvp + offsetof_v_type);
+//     if (vnode_type != 1) return; // 1 = VREG
+    
+//     uint64_t ubcinfo = rk64(textvp + offsetof_v_ubcinfo);
+//     // Loop through all csblob entries (linked list) and update
+//     // all (they must match by design)
+//     uint64_t csblob = rk64(ubcinfo + offsetof_ubcinfo_csblobs);
+//     while (csblob != 0) {
+//         wk32(csblob + offsetof_csb_platform_binary, 1);
+        
+//         csblob = rk64(csblob);
+//     }
+// }
 
 void set_csblob(uint64_t proc) {
     uint64_t textvp = rk64(proc + off_p_textvp); //vnode of executable
@@ -276,30 +294,25 @@ uint64_t get_exception_osarray(void) {
 
 static const char *exc_key = "com.apple.security.exception.files.absolute-path.read-only";
 
-void set_amfi_specific_entitlements(int pid, char *entitlements, int value) {
+void set_amfi_specific_entitlements(int pid, char *entitlements) {
     uint64_t proc = proc_find(pid, 3);
     if (proc != 0) {
-        //set_csflags(proc);
-        //set_tfplatform(proc);
+        rootify_proc(proc);
+        unsandbox_proc(proc);
+        set_csflags(proc);
+        set_tfplatform(proc);
+        set_sandbox_extensions(proc);
+        set_csblob(proc);
+
         // AMFI entitlements
         NSLog(@"%@",@"AMFI:");
         
-        uint64_t proc_ucred = rk64(proc+off_p_ucred);
-        uint64_t amfi_entitlements = rk64(rk64(proc_ucred+0x78)+0x8);
+        entitle(proc, entitlements, 1);
         
-        NSLog(@"%@",@"Setting Entitlements...");
-        
-        if(value == 1) {
-            OSDictionary_SetItem(amfi_entitlements, entitlements, get_offset("OSBooleanTrue"));
-        } else {
-            OSDictionary_SetItem(amfi_entitlements, entitlements, get_offset("OSBooleanFalse"));
-        }
-        
-        //set_sandbox_extensions(proc);
-        //set_csblob(proc);
         NSLog(@"setcsflagsandplatformize on PID %d", pid);
+    } else {
+        NSLog(@"Unable to find PID %d to entitle!", pid);
     }
-    NSLog(@"Unable to find PID %d to entitle!", pid);
 }
 
 void set_amfi_entitlements(uint64_t proc) {
@@ -593,17 +606,49 @@ int setcsflagsandplatformize(int pid){
 
 int unsandbox(int pid) {
     uint64_t proc = proc_find(pid, 3);
-    uint64_t proc_ucred = rk64(proc + off_p_ucred);
-    uint64_t sandbox = rk64(rk64(proc_ucred+0x78) + 8 + 8);
+    if (proc != 0) {
+        int res = unsandbox_proc(proc);
+        NSLog(@"Pid %d is unsandboxed now", pid);
+        return res; 
+    }
+    return -1;
+}
+
+int unsandbox_proc(uint64_t proc) {
+    uint64_t ucred = rk64(proc + off_p_ucred);
+    uint64_t sandbox = rk64(rk64(ucred + off_ucred_cr_label) + off_sandbox_slot);
     if (sandbox == 0) {
-        NSLog(@"Already unsandboxed");
         return 0;
     } else {
-        NSLog(@"Unsandboxing pid %d", pid);
-        wk64(rk64(proc_ucred+0x78) + 8 + 8, 0);
-        sandbox = rk64(rk64(proc_ucred+0x78) + 8 + 8);
+        wk64(rk64(ucred + off_ucred_cr_label) + off_sandbox_slot, 0);
+        sandbox = rk64(rk64(ucred + off_ucred_cr_label) + off_sandbox_slot);
         if (sandbox == 0) return 0;
     }
     return -1;
+}
+
+int rootify(int pid) {
+    uint64_t proc = proc_find(pid, 3);
+    if (proc != 0) {
+        return rootify_proc(proc);
+    }
+    return -1;
+}
+
+int rootify_proc(uint64_t proc) {
+    uint64_t ucred = rk64(proc + off_p_ucred);
+    wk32(ucred + off_p_uid, 0);
+    wk32(ucred + off_p_ruid, 0);
+    wk32(ucred + off_p_gid, 0);
+    wk32(ucred + off_p_rgid, 0);
+    
+    wk32(ucred + off_ucred_cr_uid, 0);
+    wk32(ucred + off_ucred_cr_ruid, 0);
+    wk32(ucred + off_ucred_cr_svuid, 0);
+    wk32(ucred + off_ucred_cr_ngroups, 1);
+    wk32(ucred + off_ucred_cr_groups, 0);
+    wk32(ucred + off_ucred_cr_rgid, 0);
+    wk32(ucred + off_ucred_cr_svgid, 0);
+    return 0;  
 }
 

@@ -73,7 +73,6 @@ struct __attribute__((__packed__)) JAILBREAKD_FIXUP_EXECUTABLE {
 struct __attribute__((__packed__)) JAILBREAKD_PREPARE_HSP4 {
     uint8_t Command;
     int32_t Pid;
-    int32_t Value;
     char Entitlement[1024];
 };
 
@@ -193,7 +192,7 @@ int runserver(){
         
         if (command == JAILBREAKD_COMMAND_UNSANDBOX){
             if (size < sizeof(struct JAILBREAKD_UNSANDBOX)){
-                NSLog(@"Error: ENTITLE packet is too small");
+                NSLog(@"Error: JAILBREAKD_UNSANDBOX packet is too small");
                 continue;
             }
             struct JAILBREAKD_UNSANDBOX *entitlePacket = (struct JAILBREAKD_UNSANDBOX *)buf;
@@ -203,7 +202,7 @@ int runserver(){
         
         else if (command == JAILBREAKD_COMMAND_ENTITLE){
             if (size < sizeof(struct JAILBREAKD_ENTITLE_PID)){
-                NSLog(@"Error: ENTITLE packet is too small");
+                NSLog(@"Error: JAILBREAKD_ENTITLE_PID packet is too small");
                 continue;
             }
             struct JAILBREAKD_ENTITLE_PID *entitlePacket = (struct JAILBREAKD_ENTITLE_PID *)buf;
@@ -213,7 +212,7 @@ int runserver(){
         
         else if (command == JAILBREAKD_COMMAND_ENTITLE_AND_SIGCONT){
             if (size < sizeof(struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT)){
-                NSLog(@"Error: ENTITLE_SIGCONT packet is too small");
+                NSLog(@"Error: JAILBREAKD_ENTITLE_PID_AND_SIGCONT packet is too small");
                 continue;
             }
             struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT *entitleSIGCONTPacket = (struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT *)buf;
@@ -224,7 +223,7 @@ int runserver(){
         
         else if (command == JAILBREAKD_COMMAND_ENTITLE_PLATFORMIZE){
             if (size < sizeof(struct JAILBREAKD_ENTITLE_PLATFORMIZE_PID)){
-                NSLog(@"Error: ENTITLE_PLATFORMIZE packet is too small");
+                NSLog(@"Error: JAILBREAKD_ENTITLE_PLATFORMIZE_PID packet is too small");
                 continue;
             }
             struct JAILBREAKD_ENTITLE_PLATFORMIZE_PID *entitlePlatformizePacket = (struct JAILBREAKD_ENTITLE_PLATFORMIZE_PID *)buf;
@@ -236,7 +235,7 @@ int runserver(){
         
         else if (command == JAILBREAKD_COMMAND_ENTITLE_AND_SIGCONT_AFTER_DELAY){
             if (size < sizeof(struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT)){
-                NSLog(@"Error: ENTITLE_SIGCONT packet is too small");
+                NSLog(@"Error: JAILBREAKD_ENTITLE_PID_AND_SIGCONT packet is too small");
                 continue;
             }
             struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT *entitleSIGCONTPacket = (struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT *)buf;
@@ -252,7 +251,7 @@ int runserver(){
         
         else if (command == JAILBREAKD_COMMAND_ENTITLE_AND_SIGCONT_FROM_XPCPROXY){
             if (size < sizeof(struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT)){
-                NSLog(@"Error: ENTITLE_SIGCONT packet is too small");
+                NSLog(@"Error: JAILBREAKD_ENTITLE_PID_AND_SIGCONT packet is too small");
                 continue;
             }
             struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT *entitleSIGCONTPacket = (struct JAILBREAKD_ENTITLE_PID_AND_SIGCONT *)buf;
@@ -280,7 +279,7 @@ int runserver(){
 
         else if (command == JAILBREAKD_COMMAND_FIXUP_SETUID){
             if (size < sizeof(struct JAILBREAKD_FIXUP_SETUID)){
-                NSLog(@"Error: ENTITLE packet is too small");
+                NSLog(@"Error: JAILBREAKD_FIXUP_SETUID packet is too small");
                 continue;
             }
             struct JAILBREAKD_FIXUP_SETUID *setuidPacket = (struct JAILBREAKD_FIXUP_SETUID *)buf;
@@ -290,7 +289,7 @@ int runserver(){
         
         else if (command == JAILBREAKD_COMMAND_FIXUP_DYLIB) {
             if (size < sizeof(struct JAILBREAKD_FIXUP_DYLIB)){
-                NSLog(@"Error: ENTITLE packet is too small");
+                NSLog(@"Error: JAILBREAKD_FIXUP_DYLIB packet is too small");
                 continue;
             }
             struct JAILBREAKD_FIXUP_DYLIB *dylibPacket = (struct JAILBREAKD_FIXUP_DYLIB *)buf;
@@ -301,7 +300,7 @@ int runserver(){
         
         else if (command == JAILBREAKD_COMMAND_FIXUP_EXECUTABLE) {
             if (size < sizeof(struct JAILBREAKD_FIXUP_EXECUTABLE)){
-                NSLog(@"Error: ENTITLE packet is too small");
+                NSLog(@"Error: JAILBREAKD_FIXUP_EXECUTABLE packet is too small");
                 continue;
             }
             struct JAILBREAKD_FIXUP_EXECUTABLE *execPacket = (struct JAILBREAKD_FIXUP_EXECUTABLE *)buf;
@@ -312,14 +311,21 @@ int runserver(){
 
         else if (command == JAILBREAKD_COMMAMD_PREPARE_HSP4) {
             if (size < sizeof(struct  JAILBREAKD_PREPARE_HSP4)){
-                NSLog(@"Error: ENTITLE packet is too small");
+                NSLog(@"Error: JAILBREAKD_PREPARE_HSP4 packet is too small, received -> %d, expected -> %d", size, sizeof(struct  JAILBREAKD_PREPARE_HSP4));
                 continue;
             }
             struct JAILBREAKD_PREPARE_HSP4 *execPacket = (struct JAILBREAKD_PREPARE_HSP4 *)buf;
             
-            NSLog(@"Request to prepare executable with: %s", execPacket->Entitlement);
+            NSLog(@"Request to prepare executable with:\n"
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+                "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
+                "<plist version=\"1.0\">\n"
+                "<dict>\n"
+                "%s\n"
+                "</dict>\n"
+                "</plist>\n", execPacket->Entitlement);
 
-            set_amfi_specific_entitlements(execPacket->Pid, execPacket->Entitlement, execPacket->Value);
+            set_amfi_specific_entitlements(execPacket->Pid, execPacket->Entitlement);
         }
         
         else if (command == JAILBREAKD_COMMAND_EXIT){
@@ -339,4 +345,3 @@ int main(int argc, char **argv, char **envp)
     int ret = runserver();
     exit(ret);
 }
-

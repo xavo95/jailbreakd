@@ -1,0 +1,1 @@
+int entitle(uint64_t proc, const char *ent, int verbose);
